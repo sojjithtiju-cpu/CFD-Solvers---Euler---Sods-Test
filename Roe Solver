@@ -1,0 +1,178 @@
+final_time = float(input("Enter final time : "))
+final_space = 1
+n_space = int(input("Enter no of space intervals : "))
+CFL = float(input("Enter CFL number : "))
+dx = final_space/n_space
+
+rho = []
+u = []
+p = []
+U = []
+
+for i in range(n_space+1):
+
+    if i < n_space/2:
+        rho.append(1)
+        u.append(0)
+        p.append(100000)
+    else:
+        rho.append(0.125)
+        u.append(0)
+        p.append(10000)
+
+U = []
+for i in range(n_space+1):
+    den_init = rho[i]
+    mom_init = rho[i]*u[i]
+    ener_init = (2.5*p[i]) + (0.5*rho[i]*(u[i]**2))
+    U.append([den_init, mom_init, ener_init])
+
+U_new = U.copy()
+t = 0
+while t < final_time:
+
+    sound_speed = []
+    for i in range(1, n_space):
+        velocity = U_new[i][1]/U_new[i][0]
+        pressure = 0.4*(U_new[i][2] - 0.5*U_new[i][0]*(velocity**2))
+        sound = (1.4*pressure/U_new[i][0])**0.5
+        sound_speed.append(abs(velocity) + sound)
+    dt = CFL*dx/max(sound_speed)
+
+    if t + dt > final_time:
+        dt = final_time - t
+        
+    U_add = []
+    for i in range(1, n_space):
+        vel_l = U_new[i-1][1]/U_new[i-1][0]
+        vel_c = U_new[i][1]/U_new[i][0]
+        vel_r = U_new[i+1][1]/U_new[i+1][0]
+        p_l = 0.4*(U_new[i-1][2] - 0.5*U_new[i-1][0]*(vel_l**2))
+        p_c = 0.4*(U_new[i][2] - 0.5*U_new[i][0]*(vel_c**2))
+        p_r = 0.4*(U_new[i+1][2] - 0.5*U_new[i+1][0]*(vel_r**2))
+        enth_l = (U_new[i-1][2] + p_l)/U_new[i-1][0]
+        enth_c = (U_new[i][2] + p_c)/U_new[i][0]
+        enth_r = (U_new[i+1][2] + p_r)/U_new[i+1][0]
+        
+        rho_plus = (U_new[i][0]*U_new[i+1][0])**0.5
+        rho_minus = (U_new[i-1][0]*U_new[i][0])**0.5
+        vel_plus = (vel_c*(U_new[i][0]**0.5) + vel_r*(U_new[i+1][0]**0.5))/(U_new[i][0]**0.5 + U_new[i+1][0]**0.5)
+        vel_minus = (vel_l*(U_new[i-1][0]**0.5) + vel_c*(U_new[i][0]**0.5))/(U_new[i-1][0]**0.5 + U_new[i][0]**0.5)
+        enth_plus = (enth_c*(U_new[i][0]**0.5) + enth_r*(U_new[i+1][0]**0.5))/(U_new[i][0]**0.5 + U_new[i+1][0]**0.5)
+        enth_minus = (enth_l*(U_new[i-1][0]**0.5) + enth_c*(U_new[i][0]**0.5))/(U_new[i-1][0]**0.5 + U_new[i][0]**0.5)
+        sound_plus = (0.4*(enth_plus - 0.5*(vel_plus**2)))**0.5
+        sound_minus = (0.4*(enth_minus - 0.5*(vel_minus**2)))**0.5
+        
+        lam1_plus = vel_plus - sound_plus
+        lam2_plus = vel_plus
+        lam3_plus = vel_plus + sound_plus
+        lam1_minus = vel_minus - sound_minus
+        lam2_minus = vel_minus
+        lam3_minus = vel_minus + sound_minus
+
+        r11_plus = 1
+        r12_plus = vel_plus - sound_plus
+        r13_plus = enth_plus - vel_plus*sound_plus
+        r11_minus = 1
+        r12_minus = vel_minus - sound_minus
+        r13_minus = enth_minus - vel_minus*sound_minus
+        r21_plus = 1
+        r22_plus = vel_plus
+        r23_plus = 0.5*(vel_plus**2)
+        r21_minus = 1
+        r22_minus = vel_minus
+        r23_minus = 0.5*(vel_minus**2)
+        r31_plus = 1
+        r32_plus = vel_plus + sound_plus
+        r33_plus = enth_plus + vel_plus*sound_plus
+        r31_minus = 1
+        r32_minus = vel_minus + sound_minus
+        r33_minus = enth_minus + vel_minus*sound_minus
+
+        l11_plus = 0.1*((vel_plus**2)/(sound_plus**2)) + 0.5*(vel_plus/sound_plus)
+        l12_plus = -0.2*((vel_plus)/(sound_plus**2)) - (0.5/sound_plus)
+        l13_plus = 0.2/(sound_plus**2)
+        l11_minus = 0.1*((vel_minus**2)/(sound_minus**2)) + 0.5*(vel_minus/sound_minus)
+        l12_minus = -0.2*((vel_minus)/(sound_minus**2)) - (0.5/sound_minus)
+        l13_minus = 0.2/(sound_minus**2)
+        l21_plus = 1 - 0.2*((vel_plus**2)/(sound_plus**2))
+        l22_plus = 0.4*vel_plus/(sound_plus**2)
+        l23_plus = -0.4/(sound_plus**2)
+        l21_minus = 1 - 0.2*((vel_minus**2)/(sound_minus**2))
+        l22_minus = 0.4*vel_minus/(sound_minus**2)
+        l23_minus = -0.4/(sound_minus**2)
+        l31_plus = 0.1*((vel_plus**2)/(sound_plus**2)) - 0.5*(vel_plus/sound_plus)
+        l32_plus = -0.2*vel_plus/(sound_plus**2) + (0.5/sound_plus)
+        l33_plus = 0.2/(sound_plus**2)
+        l31_minus = 0.1*((vel_minus**2)/(sound_minus**2)) - 0.5*(vel_minus/sound_minus)
+        l32_minus = -0.2*vel_minus/(sound_minus**2) + (0.5/sound_minus)
+        l33_minus = 0.2/(sound_minus**2)
+
+        dv1_plus = l11_plus*(U_new[i+1][0] - U_new[i][0]) + l12_plus*(U_new[i+1][1] - U_new[i][1]) + l13_plus*(U_new[i+1][2] - U_new[i][2])
+        dv1_minus = l11_minus*(U_new[i][0] - U_new[i-1][0]) + l12_minus*(U_new[i][1] - U_new[i-1][1]) + l13_minus*(U_new[i][2] - U_new[i-1][2])
+        dv2_plus = l21_plus*(U_new[i+1][0] - U_new[i][0]) + l22_plus*(U_new[i+1][1] - U_new[i][1]) + l23_plus*(U_new[i+1][2] - U_new[i][2])
+        dv2_minus = l21_minus*(U_new[i][0] - U_new[i-1][0]) + l22_minus*(U_new[i][1] - U_new[i-1][1]) + l23_minus*(U_new[i][2] - U_new[i-1][2])
+        dv3_plus = l31_plus*(U_new[i+1][0] - U_new[i][0]) + l32_plus*(U_new[i+1][1] - U_new[i][1]) + l33_plus*(U_new[i+1][2] - U_new[i][2])
+        dv3_minus = l31_minus*(U_new[i][0] - U_new[i-1][0]) + l32_minus*(U_new[i][1] - U_new[i-1][1]) + l33_minus*(U_new[i][2] - U_new[i-1][2])
+
+
+        rhoflux_plus = 0.5*(U_new[i+1][0]*vel_r + U_new[i][0]*vel_c) - 0.5*(abs(lam1_plus)*dv1_plus*r11_plus + abs(lam2_plus)*dv2_plus*r21_plus + abs(lam3_plus)*dv3_plus*r31_plus)
+        rhoflux_minus = 0.5*(U_new[i][0]*vel_c + U_new[i-1][0]*vel_l) - 0.5*(abs(lam1_minus)*dv1_minus*r11_minus + abs(lam2_minus)*dv2_minus*r21_minus + abs(lam3_minus)*dv3_minus*r31_minus)
+        momflux_plus = 0.5*(U_new[i+1][0]*(vel_r**2) + p_r + U_new[i][0]*(vel_c**2) + p_c) - 0.5*(abs(lam1_plus)*dv1_plus*r12_plus + abs(lam2_plus)*dv2_plus*r22_plus + abs(lam3_plus)*dv3_plus*r32_plus)
+        momflux_minus = 0.5*(U_new[i][0]*(vel_c**2) + p_c + U_new[i-1][0]*(vel_l**2) + p_l) - 0.5*(abs(lam1_minus)*dv1_minus*r12_minus + abs(lam2_minus)*dv2_minus*r22_minus + abs(lam3_minus)*dv3_minus*r32_minus)
+        enflux_plus = 0.5*(vel_r*(U_new[i+1][2] + p_r) + vel_c*(U_new[i][2] + p_c)) - 0.5*(abs(lam1_plus)*dv1_plus*r13_plus + abs(lam2_plus)*dv2_plus*r23_plus + abs(lam3_plus)*dv3_plus*r33_plus)
+        enflux_minus = 0.5*(vel_c*(U_new[i][2] + p_c) + vel_l*(U_new[i-1][2] + p_l)) - 0.5*(abs(lam1_minus)*dv1_minus*r13_minus + abs(lam2_minus)*dv2_minus*r23_minus + abs(lam3_minus)*dv3_minus*r33_minus)
+
+        rho_new = U_new[i][0] - (dt/dx)*(rhoflux_plus - rhoflux_minus)
+        mom_new = U_new[i][1] - (dt/dx)*(momflux_plus - momflux_minus)
+        ener_new = U_new[i][2] - (dt/dx)*(enflux_plus - enflux_minus)
+        U_add.append([rho_new, mom_new, ener_new])
+    
+    U_temp = [U_new[0]] + U_add + [U_new[-1]]
+    U_temp[0] = U_temp[1]
+    U_temp[-1] = U_temp[-2]
+    U_new = U_temp
+
+    t = t + dt
+
+import matplotlib.pyplot as plt
+
+space = [i*dx for i in range(n_space+1)]
+
+rho_final = []
+u_final = []
+p_final = []
+
+for i in range(n_space+1):
+    rho_final.append(U_new[i][0])
+    velocity = U_new[i][1]/U_new[i][0]
+    pressure = 0.4*(U_new[i][2] - 0.5*U_new[i][0]*(velocity**2))
+    u_final.append(velocity)
+    p_final.append(pressure)
+
+import matplotlib.pyplot as plt
+
+space = [i * dx for i in range(n_space + 1)]
+fig, axs = plt.subplots(3, 1, figsize=(8, 10))
+fig.suptitle("Euler - Roe", fontsize=14)
+
+axs[0].plot(space, rho, '--', label="Initial")
+axs[0].plot(space, rho_final, label="Final")
+axs[0].set_title("Density")
+axs[0].grid()
+axs[0].legend()
+
+axs[1].plot(space, u, '--', label="Initial")
+axs[1].plot(space, u_final, label="Final")
+axs[1].set_title("Velocity")
+axs[1].grid()
+axs[1].legend()
+
+axs[2].plot(space, p, '--', label="Initial")
+axs[2].plot(space, p_final, label="Final")
+axs[2].set_title("Pressure")
+axs[2].grid()
+axs[2].legend()
+
+plt.tight_layout()
+plt.show()
